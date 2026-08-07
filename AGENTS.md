@@ -14,10 +14,10 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 
 ## Golden rules (read before changing anything)
 
-1. **Pin `openai==2.21.0`.** Released HA (through 2026.7.x) constrains `openai==2.21.0`;
-   only the unreleased `dev` branch uses 2.45.0. Using 2.45.0 makes HA fail to install
-   the integration (`RequirementsNotFound`). Keep `manifest.json` requirements **and**
-   `pyproject.toml` `[project].dependencies` on `openai==2.21.0`.
+1. **Pin `openai==2.45.0`.** HA 2026.8.x constrains `openai==2.45.0`; a different
+   exact version makes HA fail to install the integration (`RequirementsNotFound`).
+   Keep `manifest.json` requirements **and** `pyproject.toml`
+   `[project].dependencies` aligned with Home Assistant.
 2. **Keep the Azure delta isolated.** LLM client lives in `client.py`; Speech REST lives
    in `speech.py`; entity/conversation/ai_task are ~verbatim upstream. Don't scatter
    Azure specifics into ported files.

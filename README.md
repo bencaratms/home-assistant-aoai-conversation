@@ -10,7 +10,7 @@ OpenAI resource. STT and TTS are **hard‑wired to Azure AI Speech** (neural voi
 e.g. German `de‑DE‑KatjaNeural`) via the Speech REST API — no OpenAI audio models.
 
 > **Home Assistant support:** latest release only (built and tested against
-> **2026.7.2**). No backwards compatibility is provided.
+> **2026.8.0**). No backwards compatibility is provided.
 
 ## Features
 
