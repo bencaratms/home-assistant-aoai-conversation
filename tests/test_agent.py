@@ -7,7 +7,7 @@ import openai
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.aoai_conversation.conversation import OpenAIConversationEntity
-from custom_components.aoai_conversation.entity import _error_message
+from custom_components.aoai_conversation.entity import _error_message, _format_tool
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
@@ -77,6 +77,28 @@ def test_error_message_falls_back_to_message_then_str() -> None:
 
     plain = openai.OpenAIError("just a string")
     assert _error_message(plain) == "just a string"
+
+
+def test_format_tool_uses_probatio_openapi() -> None:
+    """Tools use the serializer required by current Assist schemas."""
+    tool = MagicMock()
+    tool.name = "test_tool"
+    tool.description = "Test tool"
+    tool.parameters = object()
+    schema = {
+        "type": "object",
+        "properties": {},
+        "enum": ["unsupported by the Responses API"],
+    }
+
+    with patch(
+        "custom_components.aoai_conversation.entity.to_openapi",
+        return_value=schema,
+    ) as mock_to_openapi:
+        result = _format_tool(tool, None)
+
+    mock_to_openapi.assert_called_once_with(tool.parameters, custom_serializer=None)
+    assert result["parameters"] == {"type": "object", "properties": {}}
 
 
 async def test_agent_conversation_thread_created_and_reused(

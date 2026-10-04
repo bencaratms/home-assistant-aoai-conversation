@@ -1,6 +1,6 @@
 [project]
 name = "aoai-conversation"
-version = "2026.8.0"
+version = "2026.9.4"
 description = "Azure OpenAI Conversation integration for Home Assistant (conversation, AI Task, STT, TTS)."
 readme = "README.md"
 requires-python = ">=3.14.2"
@@ -9,19 +9,20 @@ authors = [{ name = "olohmann" }]
 
 # Runtime dependency of the integration itself (mirrors manifest.json requirements).
 # Pinned to match the Home Assistant release this integration targets
-# (HA 2026.8.x pins openai==2.45.0).
+# (HA 2026.9.x pins openai==2.45.0).
 dependencies = ["openai==2.45.0"]
 
 [dependency-groups]
 dev = [
-  "homeassistant==2026.8.0",
-  "pytest-homeassistant-custom-component==0.13.354",
+  "homeassistant==2026.9.4",
+  "pytest-homeassistant-custom-component==0.13.367",
   "ruff==0.14.2",
   # Requirements of the HA integrations this component depends on
   # (conversation / assist_pipeline / ai_task / tts), needed to import
+  "gazetteer-matcher==1.1.0",
   # them during tests.
-  "hassil==3.8.0",
-  "home-assistant-intents==2026.6.24",
+  "hassil==3.12.1",
+  "home-assistant-intents==2026.8.28",
   "mutagen==1.48.1",
   "PyTurboJPEG==1.8.3",
   "av==17.0.1",

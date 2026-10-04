@@ -10,7 +10,7 @@ OpenAI resource. STT and TTS are **hard‑wired to Azure AI Speech** (neural voi
 e.g. German `de‑DE‑KatjaNeural`) via the Speech REST API — no OpenAI audio models.
 
 > **Home Assistant support:** latest release only (built and tested against
-> **2026.8.0**). No backwards compatibility is provided.
+> **2026.9.4**). No backwards compatibility is provided.
 
 ## Features
 
@@ -161,6 +161,20 @@ uv run pytest
 > Debian/Ubuntu: `sudo apt-get install ffmpeg` plus `libturbojpeg` (Ubuntu 24.04+)
 > or `libturbojpeg0` (older releases) — the CI workflow does
 > this automatically).
+
+### Docker test runner
+
+Build the reusable Linux test environment once, then mount the worktree read-only for
+each test run. The image includes Python 3.14, the native Home Assistant test
+dependencies, and the locked Python environment; it does not contain your source tree
+or Azure credentials.
+
+```bash
+docker build --file Dockerfile.test --tag aoai-conversation-test:py3.14 .
+docker run --rm \
+  --mount type=bind,source="$(pwd)",target=/workspace,readonly \
+  aoai-conversation-test:py3.14 tests/test_agent.py -q
+```
 
 ### Local smoketest (live)
 
