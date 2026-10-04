@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 import json
 import struct
 from typing import Any
@@ -20,6 +21,7 @@ from .stt_backend import STTRequest
 _SESSION_TIMEOUT = 30.0
 _MAX_HEADER_LENGTH = 0x7FFF
 _HTTP_OK = 200
+_MAX_WEBSOCKET_CONNECTIONS = 3
 
 
 def speech_realtime_url(base: str, language: str) -> str:
@@ -102,6 +104,43 @@ def _parse_message(message: str) -> tuple[str, dict[str, Any]]:
     return path, payload
 
 
+@asynccontextmanager
+async def _open_websocket(
+    client: aiohttp.ClientSession, url: str, api_key: str
+) -> AsyncIterator[aiohttp.ClientWebSocketResponse]:
+    """Open Speech WebSocket, following secure Azure redirects when needed."""
+    headers = {"Ocp-Apim-Subscription-Key": api_key}
+    attempted_urls = {url}
+    current_url = url
+
+    for attempt in range(_MAX_WEBSOCKET_CONNECTIONS):
+        try:
+            async with client.ws_connect(current_url, headers=headers) as websocket:
+                yield websocket
+                return
+        except aiohttp.NonHttpUrlRedirectClientError as err:
+            redirect_url = str(err)
+            redirect = urlsplit(redirect_url)
+            if redirect.scheme != "wss" or not redirect.netloc:
+                raise HomeAssistantError(
+                    "Azure Speech realtime redirected to an invalid WebSocket URL"
+                ) from err
+            if redirect_url in attempted_urls:
+                raise HomeAssistantError(
+                    "Azure Speech realtime WebSocket redirect loop detected"
+                ) from err
+            if attempt == _MAX_WEBSOCKET_CONNECTIONS - 1:
+                raise HomeAssistantError(
+                    "Azure Speech realtime exceeded the WebSocket redirect limit"
+                ) from err
+            attempted_urls.add(redirect_url)
+            current_url = redirect_url
+
+    raise RuntimeError(
+        "Azure Speech realtime WebSocket redirect loop exited unexpectedly"
+    )
+
+
 async def async_transcribe(
     client: aiohttp.ClientSession, request: STTRequest
 ) -> str | None:
@@ -128,10 +167,7 @@ async def async_transcribe(
     speech_context = {"phraseDetection": {"mode": "CONVERSATION"}}
 
     try:
-        async with client.ws_connect(
-            url,
-            headers={"Ocp-Apim-Subscription-Key": request.api_key},
-        ) as websocket:
+        async with _open_websocket(client, url, request.api_key) as websocket:
             await websocket.send_str(
                 _headers("speech.config", request_id, "application/json").decode()
                 + "\r\n\r\n"
@@ -143,8 +179,8 @@ async def async_transcribe(
                 + json.dumps(speech_context, separators=(",", ":"))
             )
 
-            wav_headers = _headers("audio", request_id, "audio/x-wav")
-            audio_headers = _headers("audio", request_id)
+            wav_headers = _headers("audio", request_id, "audio/x-wav") + b"\r\n"
+            audio_headers = _headers("audio", request_id) + b"\r\n"
             await websocket.send_bytes(
                 _binary_message(wav_headers, _wav_header(request))
             )

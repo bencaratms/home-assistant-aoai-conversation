@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 import json
+import struct
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -256,6 +257,39 @@ class _MockSpeechWebSocketClient:
         return self.websocket
 
 
+class _RedirectingSpeechWebSocket:
+    """WebSocket context manager that simulates Azure's WSS redirect."""
+
+    def __init__(self, redirect_url: str) -> None:
+        self.redirect_url = redirect_url
+
+    async def __aenter__(self) -> None:
+        """Raise the aiohttp exception caused by a WSS redirect."""
+        raise aiohttp.NonHttpUrlRedirectClientError(self.redirect_url)
+
+    async def __aexit__(self, *_: object) -> None:
+        """Match the aiohttp WebSocket context-manager contract."""
+
+
+class _RedirectingSpeechWebSocketClient(_MockSpeechWebSocketClient):
+    """Client mock that redirects the initial custom-domain WebSocket."""
+
+    def __init__(self, redirects: list[str]) -> None:
+        super().__init__()
+        self.redirects = redirects
+        self.urls: list[str] = []
+
+    def ws_connect(
+        self, url: str, *, headers: dict[str, str]
+    ) -> _RedirectingSpeechWebSocket | _MockSpeechWebSocket:
+        """Redirect once, then open the provided regional WebSocket URL."""
+        self.urls.append(url)
+        self.headers = headers
+        if self.redirects:
+            return _RedirectingSpeechWebSocket(self.redirects.pop(0))
+        return self.websocket
+
+
 async def _audio_chunks() -> AsyncIterator[bytes]:
     """Yield two PCM chunks like Home Assistant's STT stream."""
     yield b"\x01\x00"
@@ -439,6 +473,43 @@ async def test_async_realtime_transcribe() -> None:
     assert client.headers == {"Ocp-Apim-Subscription-Key": "key"}
     assert len(client.websocket.sent_text) == 2
     assert len(client.websocket.sent_bytes) == 4
+    for frame in client.websocket.sent_bytes:
+        header_length = struct.unpack(">H", frame[:2])[0]
+        assert frame[2 : 2 + header_length].endswith(b"\r\n")
+
+
+async def test_async_realtime_transcribe_follows_wss_redirect() -> None:
+    """Realtime Speech retries Azure's custom-domain WSS redirect."""
+    regional_url = (
+        "wss://eastus2.stt.speech.microsoft.com/"
+        "speech/recognition/conversation/cognitiveservices/v1"
+        "?language=de-DE&format=detailed"
+        "&Ocp-Apim-Custom-Domain-Name=resource.services.ai.azure.com"
+    )
+    client = _RedirectingSpeechWebSocketClient(
+        [
+            "wss://redirector.speech.microsoft.com/redirect?request=first",
+            regional_url,
+        ]
+    )
+
+    transcript = await async_realtime_transcribe(
+        client,  # type: ignore[arg-type]
+        STTRequest(
+            endpoint="https://resource.services.ai.azure.com/",
+            api_key="key",
+            language="de-DE",
+            audio_stream=_audio_chunks(),
+        ),
+    )
+
+    assert transcript == "Licht an"
+    assert client.urls == [
+        "wss://resource.services.ai.azure.com/stt/speech/recognition/"
+        "conversation/cognitiveservices/v1?language=de-DE&format=detailed",
+        "wss://redirector.speech.microsoft.com/redirect?request=first",
+        regional_url,
+    ]
 
 
 async def test_async_create_conversation(hass: HomeAssistant) -> None:
