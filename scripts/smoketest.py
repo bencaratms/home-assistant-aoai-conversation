@@ -11,8 +11,8 @@ integration request code against your real Azure resources:
 
 Usage:
     cp .env.example .env      # then fill in your values
-    uv run python scripts/smoketest.py
-    # or: mise run smoketest
+    docker compose run --rm --build smoketest
+    # Native alternative: uv run python scripts/smoketest.py
 
 No secrets are printed or committed.
 """

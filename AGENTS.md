@@ -72,7 +72,11 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 ## Dev environment
 
 - **mise** (Python 3.14) + **uv**. Never use pip/pyenv/venv directly.
+- **Docker Compose is the primary test runner on every platform**:
+  `docker compose run --rm --build test`. Use
+  `docker compose run --rm --build smoketest` for the live Azure smoketest.
 - Tasks: `mise run sync | lint | format | format-check | test | check | smoketest`.
+  `mise run test-native` and `mise run smoketest-native` are native alternatives.
 - Or: `uv sync`, `uv run pytest`, `uv run ruff check custom_components tests scripts`,
   `uv run ruff format --check ...`.
 
@@ -88,11 +92,13 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
   (see `tests/conftest.py` autouse fixture).
 - Speech tests pass an `httpx.MockTransport` client directly; entity TTS test patches
   `tts.get_async_client`.
+- Native Windows Home Assistant tests are not viable; use Docker Compose. The `test`
+  service runs pytest with `-p no:cacheprovider` under a read-only mount.
 
 ## Live smoketest
 
-- `scripts/smoketest.py` (or `mise run smoketest`) exercises the real request code
-  against live Azure: LLM, voices, TTS, and a TTS→STT round-trip.
+- `scripts/smoketest.py` (or `docker compose run --rm --build smoketest`) exercises
+  the real request code against live Azure: LLM, voices, TTS, and a TTS→STT round-trip.
 - Config from a **git-ignored `.env`** (`.env.example` is the template). Never commit
   secrets; audio lands in the git-ignored `smoketest-output/`.
 

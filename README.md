@@ -143,42 +143,33 @@ To use the conversation agent, assign it (and the STT/TTS entities) to an
 This repo uses [`mise`](https://mise.jdx.dev/) to pin the toolchain (Python 3.14 +
 [`uv`](https://docs.astral.sh/uv/)) and `uv` to manage the virtualenv.
 
+### Docker Compose (recommended)
+
+```bash
+docker compose run --rm --build test
+```
+
+To run only one test file:
+
+```bash
+docker compose run --rm --build test tests/test_speech.py -p no:cacheprovider
+```
+
+The Compose service builds `Dockerfile.test` when needed, mounts the worktree
+read-only, and runs the locked Linux test environment. This is the primary test path
+on every platform.
+
+### Native development alternative
+
+Use the native toolchain for editing, linting, and debugging when your platform has the
+required Home Assistant native dependencies:
+
 ```bash
 mise install          # install Python 3.14 + uv
 mise run sync         # uv sync — create .venv and install dev deps
 mise run lint         # ruff check
 mise run format       # ruff format
-mise run test         # pytest
-mise run check        # lint + format-check + test
-```
-
-Or directly with `uv`:
-
-```bash
-uv sync
-uv run ruff check custom_components tests
-uv run ruff format --check custom_components tests
-uv run pytest
-```
-
-> Some Home Assistant dependencies (`conversation`, `ai_task`, `tts`) require native
-> libraries to import in tests. On macOS: `brew install jpeg-turbo ffmpeg`. On
-> Debian/Ubuntu: `sudo apt-get install ffmpeg` plus `libturbojpeg` (Ubuntu 24.04+)
-> or `libturbojpeg0` (older releases) — the CI workflow does
-> this automatically).
-
-### Docker test runner
-
-Build the reusable Linux test environment once, then mount the worktree read-only for
-each test run. The image includes Python 3.14, the native Home Assistant test
-dependencies, and the locked Python environment; it does not contain your source tree
-or Azure credentials.
-
-```bash
-docker build --file Dockerfile.test --tag aoai-conversation-test:py3.14 .
-docker run --rm \
-  --mount type=bind,source="$(pwd)",target=/workspace,readonly \
-  aoai-conversation-test:py3.14 tests/test_agent.py -q
+mise run test-native  # pytest outside Docker
 ```
 
 ### Local smoketest (live)
@@ -190,13 +181,18 @@ printed or committed.
 
 ```bash
 cp .env.example .env      # then fill in your endpoints, keys, voice, etc.
-mise run smoketest        # or: uv run python scripts/smoketest.py
+docker compose run --rm --build smoketest
 ```
 
 It prints a per-check PASS/FAIL summary (and exits non-zero on failure), and saves the
 synthesized audio under `smoketest-output/` (also git-ignored). The round-trip synthesizes
 a German phrase as 16 kHz PCM WAV and feeds it back to STT, which also proves the
 custom-domain `tts/` / `stt/` endpoint paths work end-to-end.
+
+The smoketest container receives values from `.env` as environment variables; it mounts
+only `custom_components/`, `scripts/`, and `smoketest-output/`, so the secret file is
+not mounted into the container. Use `mise run smoketest-native` to run it outside
+Docker.
 
 ### CI
 

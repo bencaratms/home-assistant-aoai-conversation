@@ -1,0 +1,22 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: aoai-conversation-test:py3.14
+    volumes:
+      - .:/workspace:ro
+    command: ["-p", "no:cacheprovider"]
+
+  smoketest:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: aoai-conversation-test:py3.14
+    env_file:
+      - .env
+    volumes:
+      - ./custom_components:/workspace/custom_components:ro
+      - ./scripts:/workspace/scripts:ro
+      - ./smoketest-output:/workspace/smoketest-output
+    entrypoint: ["/opt/venv/bin/python", "scripts/smoketest.py"]

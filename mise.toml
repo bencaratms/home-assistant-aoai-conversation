@@ -23,11 +23,19 @@ description = "Check formatting with ruff"
 run = "uv run ruff format --check custom_components tests scripts"
 
 [tasks.test]
-description = "Run the pytest suite"
+description = "Run the pytest suite in Docker"
+run = "docker compose run --rm --build test"
+
+[tasks.test-native]
+description = "Run the pytest suite in the local uv environment"
 run = "uv run pytest"
 
 [tasks.smoketest]
-description = "Run the live Azure smoketest (reads .env)"
+description = "Run the live Azure smoketest in Docker (reads .env)"
+run = "docker compose run --rm --build smoketest"
+
+[tasks.smoketest-native]
+description = "Run the live Azure smoketest in the local uv environment"
 run = "uv run python scripts/smoketest.py"
 
 [tasks.check]
