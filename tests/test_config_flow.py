@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aoai_conversation.const import CONF_ENDPOINT, DOMAIN
+from custom_components.aoai_conversation_bencaratms.const import CONF_ENDPOINT, DOMAIN
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
 from homeassistant.core import HomeAssistant
@@ -39,11 +39,11 @@ async def test_user_flow_creates_entry_with_subentries(hass: HomeAssistant) -> N
 
     with (
         patch(
-            "custom_components.aoai_conversation.config_flow.create_client",
+            "custom_components.aoai_conversation_bencaratms.config_flow.create_client",
             return_value=_flow_client(),
         ),
         patch(
-            "custom_components.aoai_conversation.async_setup_entry",
+            "custom_components.aoai_conversation_bencaratms.async_setup_entry",
             return_value=True,
         ),
     ):
@@ -81,7 +81,7 @@ async def test_user_flow_errors(
     client.models.list = AsyncMock(side_effect=side_effect)
 
     with patch(
-        "custom_components.aoai_conversation.config_flow.create_client",
+        "custom_components.aoai_conversation_bencaratms.config_flow.create_client",
         return_value=client,
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -94,11 +94,11 @@ async def test_user_flow_errors(
     # Recover after fixing the error.
     with (
         patch(
-            "custom_components.aoai_conversation.config_flow.create_client",
+            "custom_components.aoai_conversation_bencaratms.config_flow.create_client",
             return_value=_flow_client(),
         ),
         patch(
-            "custom_components.aoai_conversation.async_setup_entry",
+            "custom_components.aoai_conversation_bencaratms.async_setup_entry",
             return_value=True,
         ),
     ):

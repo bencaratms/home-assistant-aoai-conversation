@@ -1,4 +1,4 @@
-"""Config flow for Azure OpenAI Conversation integration."""
+"""Config flow for Azure OpenAI Conversation (Bencaratms) integration."""
 
 from collections.abc import Mapping
 import json
@@ -135,7 +135,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
 
 
 class OpenAIConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Azure OpenAI Conversation."""
+    """Handle a config flow for Azure OpenAI Conversation (Bencaratms)."""
 
     VERSION = 1
     MINOR_VERSION = 1

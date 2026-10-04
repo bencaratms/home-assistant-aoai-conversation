@@ -1,4 +1,4 @@
-"""The Azure OpenAI Conversation integration."""
+"""The Azure OpenAI Conversation (Bencaratms) integration."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ type OpenAIConfigEntry = ConfigEntry[openai.AsyncClient]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up Azure OpenAI Conversation."""
+    """Set up Azure OpenAI Conversation (Bencaratms)."""
 
     async def render_image(call: ServiceCall) -> ServiceResponse:
         """Handle the removed 'generate_image' action."""
@@ -118,7 +118,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: OpenAIConfigEntry) -> bool:
-    """Set up Azure OpenAI Conversation from a config entry."""
+    """Set up Azure OpenAI Conversation (Bencaratms) from a config entry."""
     client = create_client(hass, entry.data[CONF_API_KEY], entry.data[CONF_ENDPOINT])
 
     # Cache current platform data which gets added to each request

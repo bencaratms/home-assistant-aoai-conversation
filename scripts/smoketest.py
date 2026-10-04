@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live smoketest for the Azure OpenAI Conversation integration.
+"""Live smoketest for the Azure OpenAI Conversation (Bencaratms) integration.
 
 Reads configuration from a git-ignored ``.env`` file and exercises the *actual*
 integration request code against your real Azure resources:
@@ -30,10 +30,10 @@ import openai
 # Make the custom_components package importable when run from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from custom_components.aoai_conversation.client import (
+from custom_components.aoai_conversation_bencaratms.client import (
     normalize_azure_endpoint,
 )
-from custom_components.aoai_conversation.speech import (
+from custom_components.aoai_conversation_bencaratms.speech import (
     async_list_voices,
     async_recognize,
     async_synthesize,
@@ -239,7 +239,7 @@ async def main() -> int:
     _load_env()
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    print(f"{BOLD}Azure OpenAI Conversation -- local smoketest{RESET}\n")
+    print(f"{BOLD}Azure OpenAI Conversation (Bencaratms) -- local smoketest{RESET}\n")
 
     results: list[tuple[str, bool, str]] = []
 

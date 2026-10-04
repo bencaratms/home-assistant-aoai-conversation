@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Context and conventions for AI agents working on **home-assistant-aoai-conversation**,
-a custom Home Assistant integration (domain `aoai_conversation`).
+a custom Home Assistant integration (domain `aoai_conversation_bencaratms`).
 
 ## What this is
 
@@ -93,7 +93,7 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 
 ## Brand icon
 
-- Local brand images in `custom_components/aoai_conversation/brand/` (`icon.png` 256²,
+- Local brand images in `custom_components/aoai_conversation_bencaratms/brand/` (`icon.png` 256²,
   `icon@2x.png` 512²), supported since HA 2026.3 — no PR to `home-assistant/brands`.
 - Must be **original** (no OpenAI / Azure / Microsoft / Home Assistant logos — trademark).
 
@@ -112,7 +112,7 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 ## Layout
 
 ```
-custom_components/aoai_conversation/
+custom_components/aoai_conversation_bencaratms/
   __init__.py        setup, services (removed ones error), client wiring
   client.py          Azure OpenAI client + endpoint normalization
   speech.py          Azure Speech REST (host-aware URLs, synth/voices/recognize)

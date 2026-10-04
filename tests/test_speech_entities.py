@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aoai_conversation.tts import AzureSpeechTTSEntity
+from custom_components.aoai_conversation_bencaratms.tts import AzureSpeechTTSEntity
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -104,7 +104,7 @@ async def test_tts_get_audio(
         return httpx.Response(200, content=b"MP3DATA")
 
     with patch(
-        "custom_components.aoai_conversation.tts.get_async_client",
+        "custom_components.aoai_conversation_bencaratms.tts.get_async_client",
         return_value=_mock_transport(handler),
     ):
         ext, audio = await entity.async_get_tts_audio(

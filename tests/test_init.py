@@ -23,7 +23,9 @@ async def test_setup_and_unload(
     entity_registry = er.async_get(hass)
     domains = {e.domain for e in entity_registry.entities.values()}
     assert {"conversation", "ai_task", "stt", "tts"} <= domains
-    assert hass.states.get("conversation.azure_openai_conversation") is not None
+    assert (
+        hass.states.get("conversation.azure_openai_conversation_bencaratms") is not None
+    )
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
@@ -37,7 +39,7 @@ async def _setup_with_client_error(
     client = build_setup_client()
     client.models.list.side_effect = error
     with patch(
-        "custom_components.aoai_conversation.create_client",
+        "custom_components.aoai_conversation_bencaratms.create_client",
         return_value=client,
     ):
         await hass.config_entries.async_setup(entry.entry_id)
