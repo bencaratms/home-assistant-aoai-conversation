@@ -1,7 +1,12 @@
 """Tests for the Azure AI Speech REST helpers (speech.py)."""
 
+import asyncio
+from collections.abc import AsyncIterator
+import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import aiohttp
 import httpx
 import pytest
 
@@ -11,10 +16,21 @@ from custom_components.aoai_conversation.client import (
 )
 from custom_components.aoai_conversation.speech import (
     async_list_voices,
-    async_recognize,
     async_synthesize,
     build_ssml,
     speech_url,
+)
+from custom_components.aoai_conversation.stt_backend import STTRequest
+from custom_components.aoai_conversation.stt_buffered import (
+    async_transcribe as async_buffered_transcribe,
+)
+from custom_components.aoai_conversation.stt_mai import (
+    async_transcribe as async_mai_transcribe,
+    mai_realtime_url,
+)
+from custom_components.aoai_conversation.stt_realtime import (
+    async_transcribe as async_realtime_transcribe,
+    speech_realtime_url,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -60,6 +76,38 @@ def test_speech_url(base: str, kind: str, expected: str) -> None:
     assert speech_url(base.rstrip("/"), kind) == expected
 
 
+@pytest.mark.parametrize(
+    ("base", "expected"),
+    [
+        (
+            "https://resource.services.ai.azure.com/",
+            "wss://resource.services.ai.azure.com/mai/v1/realtime?intent=transcription",
+        ),
+        (
+            "wss://resource.services.ai.azure.com",
+            "wss://resource.services.ai.azure.com/mai/v1/realtime?intent=transcription",
+        ),
+    ],
+)
+def test_mai_realtime_url(base: str, expected: str) -> None:
+    """MAI uses the Foundry resource root and a fixed realtime path."""
+    assert mai_realtime_url(base) == expected
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "https://resource.services.ai.azure.com/api/projects/project",
+        "https://resource.services.ai.azure.com/?query=value",
+        "http://resource.services.ai.azure.com",
+    ],
+)
+def test_mai_realtime_url_rejects_non_resource_roots(base: str) -> None:
+    """MAI requires a clean HTTPS or WSS Foundry resource root."""
+    with pytest.raises(HomeAssistantError, match="resource root"):
+        mai_realtime_url(base)
+
+
 def test_build_ssml_basic() -> None:
     """A minimal SSML document contains the voice and escaped text."""
     ssml = build_ssml("Hallo & <Welt>", "de-DE-KatjaNeural", "de-DE")
@@ -88,6 +136,180 @@ def test_build_ssml_prosody_and_style() -> None:
 
 def _mock_client(handler) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+class _MockWebSocket:
+    """Small WebSocket mock that queues a completion after commit."""
+
+    def __init__(self) -> None:
+        self.events = [
+            {"type": "session.created"},
+            {"type": "session.updated"},
+        ]
+        self.sent: list[dict] = []
+        self._event_available = asyncio.Event()
+
+    async def __aenter__(self) -> _MockWebSocket:
+        """Enter the mock connection context."""
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        """Exit the mock connection context."""
+
+    async def send_json(self, data: dict) -> None:
+        """Record a client event and complete after its commit."""
+        self.sent.append(data)
+        if data["type"] == "input_audio_buffer.commit":
+            self.events.append(
+                {
+                    "type": "conversation.item.input_audio_transcription.completed",
+                    "transcript": "Turn on the kitchen light",
+                }
+            )
+            self._event_available.set()
+
+    async def receive(self) -> SimpleNamespace:
+        """Return queued server events."""
+        while not self.events:
+            await self._event_available.wait()
+        return SimpleNamespace(
+            type=aiohttp.WSMsgType.TEXT, data=json.dumps(self.events.pop(0))
+        )
+
+    def exception(self) -> None:
+        """Match the aiohttp WebSocket error API."""
+        return None
+
+
+class _MockWebSocketClient:
+    """Client mock exposing aiohttp's ws_connect context-manager contract."""
+
+    def __init__(self) -> None:
+        self.websocket = _MockWebSocket()
+        self.url: str | None = None
+        self.headers: dict[str, str] | None = None
+
+    def ws_connect(self, url: str, *, headers: dict[str, str]) -> _MockWebSocket:
+        """Return the reusable mock WebSocket."""
+        self.url = url
+        self.headers = headers
+        return self.websocket
+
+
+class _MockSpeechWebSocket:
+    """WebSocket mock that records Azure Speech text and binary frames."""
+
+    def __init__(self) -> None:
+        self.events = [
+            (
+                "speech.phrase",
+                {
+                    "RecognitionStatus": "Success",
+                    "DisplayText": "Licht an",
+                },
+            ),
+            ("turn.end", {}),
+        ]
+        self.sent_text: list[str] = []
+        self.sent_bytes: list[bytes] = []
+
+    async def __aenter__(self) -> _MockSpeechWebSocket:
+        """Enter the mock connection context."""
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        """Exit the mock connection context."""
+
+    async def send_str(self, data: str) -> None:
+        """Record a control frame."""
+        self.sent_text.append(data)
+
+    async def send_bytes(self, data: bytes) -> None:
+        """Record a binary frame."""
+        self.sent_bytes.append(data)
+
+    async def receive(self) -> SimpleNamespace:
+        """Return a queued Speech protocol event."""
+        path, body = self.events.pop(0)
+        return SimpleNamespace(
+            type=aiohttp.WSMsgType.TEXT,
+            data=f"Path: {path}\r\n\r\n{json.dumps(body)}",
+        )
+
+    def exception(self) -> None:
+        """Match the aiohttp WebSocket error API."""
+        return None
+
+
+class _MockSpeechWebSocketClient:
+    """Client mock exposing an Azure Speech WebSocket connection."""
+
+    def __init__(self) -> None:
+        self.websocket = _MockSpeechWebSocket()
+        self.url: str | None = None
+        self.headers: dict[str, str] | None = None
+
+    def ws_connect(self, url: str, *, headers: dict[str, str]) -> _MockSpeechWebSocket:
+        """Return the reusable mock WebSocket."""
+        self.url = url
+        self.headers = headers
+        return self.websocket
+
+
+async def _audio_chunks() -> AsyncIterator[bytes]:
+    """Yield two PCM chunks like Home Assistant's STT stream."""
+    yield b"\x01\x00"
+    yield b"\x02\x00"
+
+
+async def test_async_mai_transcribe() -> None:
+    """MAI forwards chunks immediately and returns the committed transcript."""
+    client = _MockWebSocketClient()
+
+    transcript = await async_mai_transcribe(
+        client,  # type: ignore[arg-type]
+        STTRequest(
+            endpoint="https://resource.services.ai.azure.com/",
+            api_key="mai-key",
+            deployment="mai-transcribe-deployment",
+            language="de-DE",
+            audio_stream=_audio_chunks(),
+        ),
+    )
+
+    assert transcript == "Turn on the kitchen light"
+    assert client.url == (
+        "wss://resource.services.ai.azure.com/mai/v1/realtime?intent=transcription"
+    )
+    assert client.headers == {"api-key": "mai-key"}
+    assert client.websocket.sent == [
+        {
+            "type": "session.update",
+            "session": {
+                "type": "transcription",
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": 16000},
+                        "transcription": {
+                            "model": "mai-transcribe-deployment",
+                            "language": "de",
+                        },
+                        "turn_detection": None,
+                        "noise_reduction": None,
+                    }
+                },
+            },
+        },
+        {
+            "type": "input_audio_buffer.append",
+            "audio": "AQA=",
+        },
+        {
+            "type": "input_audio_buffer.append",
+            "audio": "AgA=",
+        },
+        {"type": "input_audio_buffer.commit"},
+    ]
 
 
 async def test_async_synthesize_success(hass: HomeAssistant) -> None:
@@ -148,7 +370,7 @@ async def test_async_list_voices(hass: HomeAssistant) -> None:
     ]
 
 
-async def test_async_recognize_success(hass: HomeAssistant) -> None:
+async def test_async_buffered_transcribe_success(hass: HomeAssistant) -> None:
     """Recognition returns DisplayText for a successful status."""
     captured: dict = {}
 
@@ -158,22 +380,65 @@ async def test_async_recognize_success(hass: HomeAssistant) -> None:
             200, json={"RecognitionStatus": "Success", "DisplayText": "Licht an"}
         )
 
-    text = await async_recognize(_mock_client(handler), BASE, "key", b"WAV", "de-DE")
+    text = await async_buffered_transcribe(
+        _mock_client(handler),
+        STTRequest(
+            endpoint=BASE,
+            api_key="key",
+            language="de-DE",
+            audio_stream=_audio_chunks(),
+        ),
+    )
 
     assert text == "Licht an"
     assert "language=de-DE" in captured["url"]
     assert "/speech/recognition/conversation/cognitiveservices/v1" in captured["url"]
 
 
-async def test_async_recognize_no_match(hass: HomeAssistant) -> None:
+async def test_async_buffered_transcribe_no_match(hass: HomeAssistant) -> None:
     """A non-success status yields None."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"RecognitionStatus": "NoMatch"})
 
-    text = await async_recognize(_mock_client(handler), BASE, "key", b"WAV", "de-DE")
+    text = await async_buffered_transcribe(
+        _mock_client(handler),
+        STTRequest(
+            endpoint=BASE,
+            api_key="key",
+            language="de-DE",
+            audio_stream=_audio_chunks(),
+        ),
+    )
 
     assert text is None
+
+
+def test_speech_realtime_url() -> None:
+    """Realtime Speech converts the configured HTTPS endpoint to WSS."""
+    assert speech_realtime_url(BASE, "de-DE") == (
+        "wss://lohmannio.cognitiveservices.azure.com/stt/speech/recognition/"
+        "conversation/cognitiveservices/v1?language=de-DE&format=detailed"
+    )
+
+
+async def test_async_realtime_transcribe() -> None:
+    """Realtime Speech forwards framed PCM and returns its final phrase."""
+    client = _MockSpeechWebSocketClient()
+    transcript = await async_realtime_transcribe(
+        client,  # type: ignore[arg-type]
+        STTRequest(
+            endpoint=BASE,
+            api_key="key",
+            language="de-DE",
+            audio_stream=_audio_chunks(),
+        ),
+    )
+
+    assert transcript == "Licht an"
+    assert client.headers == {"Ocp-Apim-Subscription-Key": "key"}
+    assert len(client.websocket.sent_text) == 2
+    assert len(client.websocket.sent_bytes) == 4
 
 
 async def test_async_create_conversation(hass: HomeAssistant) -> None:

@@ -45,6 +45,8 @@ CONF_VERBOSITY = "verbosity"
 CONF_STT_ENDPOINT = "stt_endpoint"
 CONF_STT_API_KEY = "stt_api_key"
 CONF_STT_LANGUAGE = "stt_language"
+CONF_STT_BACKEND = "stt_backend"
+CONF_STT_DEPLOYMENT = "stt_deployment"
 CONF_TTS_ENDPOINT = "tts_endpoint"
 CONF_TTS_API_KEY = "tts_api_key"
 CONF_TTS_VOICE = "tts_voice"
@@ -74,6 +76,9 @@ RECOMMENDED_VERBOSITY = "medium"
 
 # Azure AI Speech defaults.
 DEFAULT_STT_LANGUAGE = "en-US"
+STT_BACKEND_AZURE_SPEECH = "azure_speech"
+STT_BACKEND_AZURE_SPEECH_REALTIME = "azure_speech_realtime"
+STT_BACKEND_MAI_STREAMING = "mai_transcribe_2_streaming"
 DEFAULT_TTS_VOICE = "de-DE-KatjaNeural"
 DEFAULT_TTS_OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3"
 # X-Microsoft-OutputFormat -> (file extension, HA-facing content type).
@@ -153,6 +158,7 @@ RECOMMENDED_AI_TASK_OPTIONS = {
     CONF_RECOMMENDED: True,
 }
 RECOMMENDED_STT_OPTIONS: dict[str, Any] = {
+    CONF_STT_BACKEND: STT_BACKEND_AZURE_SPEECH,
     CONF_STT_LANGUAGE: DEFAULT_STT_LANGUAGE,
 }
 RECOMMENDED_TTS_OPTIONS: dict[str, Any] = {

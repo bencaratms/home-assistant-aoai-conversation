@@ -1,4 +1,4 @@
-"""Azure AI Speech REST client helpers.
+"""Azure AI Speech REST client helpers for text-to-speech.
 
 STT and TTS in this integration are hard-wired to **Azure AI Speech** (not the
 OpenAI audio endpoints). The Speech endpoint differs per install (custom
@@ -6,7 +6,7 @@ subdomain, e.g. ``https://<name>.cognitiveservices.azure.com/``, or a regional
 host), so the base endpoint URI and API key are configured per entity.
 
 All calls are plain REST over an ``httpx.AsyncClient`` -- no binary Speech SDK is
-required. Authentication uses the ``Ocp-Apim-Subscription-Key`` header.
+required.
 """
 
 from __future__ import annotations
@@ -19,8 +19,6 @@ import httpx
 
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import LOGGER
-
 # REST path suffixes. Regional hosts (``<region>.tts|stt.speech.microsoft.com``)
 # encode the service in the hostname and use bare suffixes; custom-domain /
 # private-endpoint hosts (``<name>.cognitiveservices.azure.com``) share one host
@@ -28,9 +26,6 @@ from .const import LOGGER
 _SUFFIX_TTS = "cognitiveservices/v1"
 _SUFFIX_VOICES = "cognitiveservices/voices/list"
 _SUFFIX_STT = "speech/recognition/conversation/cognitiveservices/v1"
-
-# Speech recognition succeeds only for this status.
-_STT_SUCCESS = "Success"
 
 
 def speech_url(base: str, kind: str) -> str:
@@ -154,45 +149,3 @@ async def async_list_voices(
     if not isinstance(data, list):
         raise HomeAssistantError("Unexpected Azure Speech voice list response")
     return data
-
-
-async def async_recognize(
-    client: httpx.AsyncClient,
-    base: str,
-    api_key: str,
-    wav_audio: bytes,
-    language: str,
-) -> str | None:
-    """Recognize a short WAV clip and return the transcript, or ``None``.
-
-    Uses the short-audio, one-shot recognition endpoint (suitable for the brief
-    voice commands issued through Home Assistant Assist).
-    """
-    try:
-        response = await client.post(
-            speech_url(base, "stt"),
-            params={"language": language, "format": "detailed"},
-            headers={
-                "Ocp-Apim-Subscription-Key": api_key,
-                "Content-Type": ("audio/wav; codecs=audio/pcm; samplerate=16000"),
-                "Accept": "application/json",
-                "User-Agent": "home-assistant-aoai-conversation",
-            },
-            content=wav_audio,
-            timeout=30.0,
-        )
-        response.raise_for_status()
-    except httpx.HTTPStatusError as err:
-        raise HomeAssistantError(
-            f"Azure Speech STT request failed ({err.response.status_code}): "
-            f"{err.response.text}"
-        ) from err
-    except httpx.HTTPError as err:
-        raise HomeAssistantError(f"Azure Speech STT request failed: {err}") from err
-
-    result = response.json()
-    status = result.get("RecognitionStatus")
-    if status != _STT_SUCCESS:
-        LOGGER.debug("Azure Speech STT non-success status: %s", status)
-        return None
-    return result.get("DisplayText")

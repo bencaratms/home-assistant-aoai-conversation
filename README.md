@@ -2,12 +2,14 @@
 
 A custom [Home Assistant](https://www.home-assistant.io/) integration that adds an
 **Azure OpenAI / Azure AI Foundry**–backed conversation agent and AI Task entity,
-plus **Azure AI Speech**–backed speech‑to‑text (STT) and text‑to‑speech (TTS).
+plus Azure AI Speech–backed speech-to-text (STT) and text-to-speech (TTS).
 
 The conversation/AI‑Task side tracks the **latest** upstream OpenAI Conversation
 integration (Responses API, config *subentries* architecture) but points at your Azure
-OpenAI resource. STT and TTS are **hard‑wired to Azure AI Speech** (neural voices,
-e.g. German `de‑DE‑KatjaNeural`) via the Speech REST API — no OpenAI audio models.
+OpenAI resource. TTS is backed by Azure AI Speech (neural voices, e.g. German
+`de-DE-KatjaNeural`) via the Speech REST API. STT supports Azure Speech REST,
+Azure Speech realtime recognition, or MAI-Transcribe-2-Streaming — no OpenAI audio
+models.
 
 > **Home Assistant support:** latest release only (built and tested against
 > **2026.9.4**). No backwards compatibility is provided.
@@ -21,8 +23,9 @@ e.g. German `de‑DE‑KatjaNeural`) via the Speech REST API — no OpenAI audio
 - 🧠 **AI Task** (Azure OpenAI) — `ai_task.generate_data` (structured output) and
   `ai_task.generate_image`. The image model field accepts a **custom Azure
   deployment name** (default `gpt-image-2`).
-- 🎙️ **Speech‑to‑Text** (Azure AI Speech) — short‑audio recognition via the Speech
-  REST API. Configured with **endpoint URI + API key + language**.
+- 🎙️ **Speech-to-Text** — choose Azure Speech REST for short-audio recognition,
+  Azure Speech realtime recognition for low-latency streaming using your existing
+  Speech resource, or MAI-Transcribe-2-Streaming for Foundry-hosted streaming.
 - 🔊 **Text‑to‑Speech** (Azure AI Speech) — neural voices via SSML. Configured with
   **endpoint URI + API key + voice** (+ optional output format, rate, pitch, style).
 
@@ -78,9 +81,12 @@ Copy `custom_components/aoai_conversation` into your Home Assistant
 3. The integration creates four entities (subentries): **Conversation**, **AI Task**,
    **STT** and **TTS**. Configure each via **Configure** → the respective subentry:
    - **Conversation / AI Task** — set the model to your Azure **deployment name**.
-   - **STT** (Azure AI Speech) — set the **endpoint URI**
-     (e.g. `https://your-resource.cognitiveservices.azure.com/`), the **API key**, and
-     the recognition **language** (e.g. `de-DE`).
+   - **STT** — choose the transcription backend. **Azure Speech REST (buffered)**
+     and **Azure Speech realtime** use a Speech endpoint (e.g.
+     `https://your-resource.cognitiveservices.azure.com/`), API key, and BCP-47
+     language (e.g. `de-DE`). **MAI-Transcribe-2-Streaming** uses the Foundry resource
+     root (e.g. `https://your-resource.services.ai.azure.com/`), API key, MAI
+     deployment name, and a primary language code (e.g. `de`; blank enables detection).
    - **TTS** (Azure AI Speech) — set the **endpoint URI**, the **API key**, the
      **voice** short name (e.g. `de-DE-KatjaNeural`), and optionally output format,
      rate, pitch and speaking style.

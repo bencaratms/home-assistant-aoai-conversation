@@ -7,7 +7,8 @@ a custom Home Assistant integration (domain `aoai_conversation`).
 
 A custom HA integration providing:
 - **Conversation** + **AI Task** → **Azure OpenAI** (Responses API, `openai` lib).
-- **STT** + **TTS** → **Azure AI Speech** (plain REST, no SDK).
+- **STT** → Azure AI Speech REST, Azure AI Speech realtime, or
+  MAI-Transcribe-2-Streaming; **TTS** → Azure AI Speech REST (no SDK).
 
 It is a port of HA core's `openai_conversation`, with the Azure delta kept **surgically
 isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibility**.
@@ -21,7 +22,8 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 2. **Keep the Azure delta isolated.** LLM client lives in `client.py`; Speech REST lives
    in `speech.py`; entity/conversation/ai_task are ~verbatim upstream. Don't scatter
    Azure specifics into ported files.
-3. **STT/TTS are hard-wired to Azure Speech** — no OpenAI audio models, no toggles.
+3. **TTS is hard-wired to Azure Speech and STT is limited to Azure Speech REST,
+   Azure Speech realtime, or MAI-Transcribe-2-Streaming** — no OpenAI audio models.
 4. **Config subentry architecture** (parent connection entry + per-entity subentries).
    Don't reintroduce the legacy flat single-entry design.
 
@@ -41,7 +43,9 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
     (thread)** per HA `conversation_id` (`extra_body["conversation"]`) so the agent keeps
     context, sending only the newest turn. **Model mode** still passes HA's Assist tools +
     all model options as usual.
-  - **STT** subentry carries its own `stt_endpoint` + `stt_api_key` + `stt_language`.
+  - **STT** subentry carries its own endpoint, API key, language, backend, and (for
+    MAI streaming) deployment name. Azure Speech REST consumes completed WAV audio;
+    the realtime backends stream incoming PCM16 chunks through their WebSockets.
   - **TTS** subentry carries its own `tts_endpoint` + `tts_api_key` + `tts_voice`
     (+ output format / rate / pitch / style).
 - `entry.runtime_data` = the `openai.AsyncOpenAI` client (used only by conversation/AI Task).
@@ -61,8 +65,9 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
     STT: `{base}/[stt/]speech/recognition/conversation/cognitiveservices/v1`.
 - Auth header for Speech: `Ocp-Apim-Subscription-Key`. TTS = SSML POST; STT = short-audio
   one-shot WAV (PCM 16 kHz mono) → `DisplayText`.
-- `speech.py` async fns take an **`httpx.AsyncClient`** (not `hass`); entities pass
-  `get_async_client(self.hass)`. Keep it that way (lets the smoketest run without HA).
+- `stt_buffered.py`, `stt_realtime.py`, and `stt_mai.py` expose the same
+  `async_transcribe(client, request)` contract. REST uses an **`httpx.AsyncClient`**;
+  realtime transports use Home Assistant's shared `aiohttp.ClientSession`.
 
 ## Dev environment
 

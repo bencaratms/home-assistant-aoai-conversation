@@ -188,6 +188,9 @@
         "entry_not_loaded": "Cannot add things while the configuration is disabled.",
         "reconfigure_successful": "Reconfiguration was successful"
       },
+      "error": {
+        "deployment_required": "A MAI streaming deployment name is required"
+      },
       "entry_type": "Speech-to-text",
       "initiate_flow": {
         "reconfigure": "Reconfigure speech-to-text service",
@@ -197,14 +200,18 @@
         "init": {
           "data": {
             "name": "Name",
+            "stt_backend": "Transcription backend",
+            "stt_deployment": "MAI streaming deployment name",
             "stt_endpoint": "Endpoint URI",
             "stt_api_key": "API key",
             "stt_language": "Language"
           },
           "data_description": {
-            "stt_endpoint": "Your Azure AI Speech endpoint (the base URL from the Speech resource 'Keys and Endpoint' page).",
-            "stt_api_key": "The API key for the Azure AI Speech resource.",
-            "stt_language": "BCP-47 language used for recognition, e.g. `de-DE` or `en-US`."
+            "stt_backend": "Azure Speech REST buffers an utterance before sending it. Azure Speech realtime and MAI-Transcribe-2-Streaming forward audio as it arrives over a WebSocket connection.",
+            "stt_deployment": "Required only for MAI streaming: the name of your MAI-Transcribe-2-Streaming model deployment.",
+            "stt_endpoint": "For Azure Speech REST, the Azure AI Speech endpoint. For MAI streaming, the Foundry resource root, e.g. `https://your-resource.services.ai.azure.com/`.",
+            "stt_api_key": "The API key for the selected Azure Speech or Foundry resource.",
+            "stt_language": "Recognition language. Azure Speech REST accepts BCP-47 values such as `de-DE`; MAI streaming uses the primary language code, such as `de`."
           }
         }
       }
@@ -294,6 +301,13 @@
         "default": "Standard",
         "flex": "Flex",
         "priority": "Priority"
+      }
+    },
+    "stt_backend": {
+      "options": {
+        "azure_speech": "Azure Speech REST (buffered)",
+        "azure_speech_realtime": "Azure Speech realtime",
+        "mai_transcribe_2_streaming": "MAI-Transcribe-2-Streaming"
       }
     },
     "verbosity": {

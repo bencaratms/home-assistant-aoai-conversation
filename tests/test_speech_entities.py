@@ -46,6 +46,78 @@ async def test_stt_subentry_flow(
     assert result["data"]["stt_language"] == "de-DE"
 
 
+async def test_mai_streaming_stt_subentry_flow(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """The MAI backend retains STT credentials and requires its deployment."""
+    result = await hass.config_entries.subentries.async_init(
+        (setup_integration.entry_id, "stt"),
+        context={"source": config_entries.SOURCE_USER},
+    )
+    assert result["type"] is FlowResultType.FORM
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Streaming STT",
+            "stt_endpoint": "https://resource.services.ai.azure.com/",
+            "stt_api_key": "maikey",
+            "stt_backend": "mai_transcribe_2_streaming",
+            "stt_deployment": "mai-transcribe-deployment",
+            "stt_language": "de-DE",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["stt_backend"] == "mai_transcribe_2_streaming"
+    assert result["data"]["stt_deployment"] == "mai-transcribe-deployment"
+
+
+async def test_mai_streaming_stt_requires_deployment(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """MAI streaming cannot be saved without its deployment name."""
+    result = await hass.config_entries.subentries.async_init(
+        (setup_integration.entry_id, "stt"),
+        context={"source": config_entries.SOURCE_USER},
+    )
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Streaming STT",
+            "stt_endpoint": "https://resource.services.ai.azure.com/",
+            "stt_api_key": "maikey",
+            "stt_backend": "mai_transcribe_2_streaming",
+            "stt_language": "de-DE",
+        },
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"stt_deployment": "deployment_required"}
+
+
+async def test_realtime_stt_subentry_flow(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """Azure Speech realtime uses the existing endpoint, key, and language fields."""
+    result = await hass.config_entries.subentries.async_init(
+        (setup_integration.entry_id, "stt"),
+        context={"source": config_entries.SOURCE_USER},
+    )
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Realtime STT",
+            "stt_endpoint": STT_ENDPOINT,
+            "stt_api_key": "sttkey",
+            "stt_backend": "azure_speech_realtime",
+            "stt_language": "de-DE",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["stt_backend"] == "azure_speech_realtime"
+
+
 async def test_tts_subentry_flow_custom_voice(
     hass: HomeAssistant, setup_integration: MockConfigEntry
 ) -> None:

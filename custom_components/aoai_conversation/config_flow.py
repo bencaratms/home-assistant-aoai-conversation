@@ -59,6 +59,8 @@ from .const import (
     CONF_SERVICE_TIER,
     CONF_STORE_RESPONSES,
     CONF_STT_API_KEY,
+    CONF_STT_BACKEND,
+    CONF_STT_DEPLOYMENT,
     CONF_STT_ENDPOINT,
     CONF_STT_LANGUAGE,
     CONF_TEMPERATURE,
@@ -106,6 +108,9 @@ from .const import (
     RECOMMENDED_WEB_SEARCH_CONTEXT_SIZE,
     RECOMMENDED_WEB_SEARCH_INLINE_CITATIONS,
     RECOMMENDED_WEB_SEARCH_USER_LOCATION,
+    STT_BACKEND_AZURE_SPEECH,
+    STT_BACKEND_AZURE_SPEECH_REALTIME,
+    STT_BACKEND_MAI_STREAMING,
     TTS_OUTPUT_FORMATS,
     UNSUPPORTED_CODE_INTERPRETER_MODELS,
     UNSUPPORTED_FLEX_SERVICE_TIERS_MODELS,
@@ -820,12 +825,35 @@ class OpenAISubentrySTTFlowHandler(ConfigSubentryFlow):
                 vol.Required(CONF_STT_API_KEY): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
+                vol.Required(
+                    CONF_STT_BACKEND,
+                    default=options.get(CONF_STT_BACKEND, STT_BACKEND_AZURE_SPEECH),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            STT_BACKEND_AZURE_SPEECH,
+                            STT_BACKEND_AZURE_SPEECH_REALTIME,
+                            STT_BACKEND_MAI_STREAMING,
+                        ],
+                        translation_key=CONF_STT_BACKEND,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_STT_DEPLOYMENT): str,
                 vol.Optional(CONF_STT_LANGUAGE, default=DEFAULT_STT_LANGUAGE): str,
             }
         )
 
         if user_input is not None:
-            options.update(user_input)
+            if (
+                user_input[CONF_STT_BACKEND] == STT_BACKEND_MAI_STREAMING
+                and not user_input.get(CONF_STT_DEPLOYMENT, "").strip()
+            ):
+                errors[CONF_STT_DEPLOYMENT] = "deployment_required"
+            else:
+                options.update(user_input)
+                if user_input[CONF_STT_BACKEND] != STT_BACKEND_MAI_STREAMING:
+                    options.pop(CONF_STT_DEPLOYMENT, None)
             if not errors:
                 if self._is_new:
                     return self.async_create_entry(

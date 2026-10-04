@@ -20,9 +20,11 @@ No secrets are printed or committed.
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 from pathlib import Path
 import sys
+import wave
 
 import httpx
 import openai
@@ -35,10 +37,11 @@ from custom_components.aoai_conversation.client import (
 )
 from custom_components.aoai_conversation.speech import (
     async_list_voices,
-    async_recognize,
     async_synthesize,
     build_ssml,
 )
+from custom_components.aoai_conversation.stt_backend import STTRequest
+from custom_components.aoai_conversation.stt_buffered import async_transcribe
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "smoketest-output"
 
@@ -224,7 +227,21 @@ async def check_stt_roundtrip(client: httpx.AsyncClient) -> str:
     OUTPUT_DIR.mkdir(exist_ok=True)
     (OUTPUT_DIR / "stt-input.wav").write_bytes(wav)
 
-    text = await async_recognize(client, stt_endpoint, stt_key, wav, language)
+    with wave.open(io.BytesIO(wav), "rb") as wav_file:
+        pcm = wav_file.readframes(wav_file.getnframes())
+
+    async def audio_stream():
+        yield pcm
+
+    text = await async_transcribe(
+        client,
+        STTRequest(
+            endpoint=stt_endpoint,
+            api_key=stt_key,
+            language=language,
+            audio_stream=audio_stream(),
+        ),
+    )
     if not text:
         raise RuntimeError("STT returned no transcript")
 

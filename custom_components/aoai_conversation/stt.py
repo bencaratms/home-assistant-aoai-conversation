@@ -3,28 +3,35 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterable
-import io
 import logging
 from typing import TYPE_CHECKING, override
-import wave
 
 from homeassistant.components import stt
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.httpx_client import get_async_client
 
 from .const import (
     CONF_STT_API_KEY,
+    CONF_STT_BACKEND,
+    CONF_STT_DEPLOYMENT,
     CONF_STT_ENDPOINT,
     CONF_STT_LANGUAGE,
     DEFAULT_STT_LANGUAGE,
     DOMAIN,
+    STT_BACKEND_AZURE_SPEECH,
+    STT_BACKEND_AZURE_SPEECH_REALTIME,
+    STT_BACKEND_MAI_STREAMING,
 )
-from .speech import async_recognize
+from .stt_backend import STTRequest
+from .stt_buffered import async_transcribe as async_buffered_transcribe
+from .stt_mai import async_transcribe as async_mai_transcribe
+from .stt_realtime import async_transcribe as async_realtime_transcribe
 
 if TYPE_CHECKING:
     from . import OpenAIConfigEntry
@@ -167,29 +174,46 @@ class AzureSpeechSTTEntity(stt.SpeechToTextEntity, Entity):
             )
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)
 
-        audio_bytes = bytearray()
-        async for chunk in stream:
-            audio_bytes.extend(chunk)
-
-        # Wrap the raw PCM in a WAV container as required by the Speech REST API.
-        wav_buffer = io.BytesIO()
-        with wave.open(wav_buffer, "wb") as wav_file:
-            wav_file.setnchannels(metadata.channel.value)
-            wav_file.setsampwidth(metadata.bit_rate.value // 8)
-            wav_file.setframerate(metadata.sample_rate.value)
-            wav_file.writeframes(bytes(audio_bytes))
-        wav_data = wav_buffer.getvalue()
-
+        backend = self.subentry.data.get(CONF_STT_BACKEND, STT_BACKEND_AZURE_SPEECH)
         language = self.subentry.data.get(CONF_STT_LANGUAGE) or (
-            metadata.language or DEFAULT_STT_LANGUAGE
+            metadata.language if backend != STT_BACKEND_MAI_STREAMING else ""
+        )
+        if not language and backend != STT_BACKEND_MAI_STREAMING:
+            language = DEFAULT_STT_LANGUAGE
+
+        request = STTRequest(
+            endpoint=endpoint,
+            api_key=api_key,
+            language=language,
+            deployment=self.subentry.data.get(CONF_STT_DEPLOYMENT),
+            audio_stream=stream,
+            channels=metadata.channel.value,
+            sample_width=metadata.bit_rate.value // 8,
+            sample_rate=metadata.sample_rate.value,
         )
 
         try:
-            text = await async_recognize(
-                get_async_client(self.hass), endpoint, api_key, wav_data, language
-            )
+            if backend == STT_BACKEND_AZURE_SPEECH:
+                text = await async_buffered_transcribe(
+                    get_async_client(self.hass), request
+                )
+            elif backend == STT_BACKEND_AZURE_SPEECH_REALTIME:
+                text = await async_realtime_transcribe(
+                    async_get_clientsession(self.hass), request
+                )
+            elif backend == STT_BACKEND_MAI_STREAMING:
+                text = await async_mai_transcribe(
+                    async_get_clientsession(self.hass), request
+                )
+            else:
+                _LOGGER.error(
+                    "Unknown STT backend '%s' for the '%s' entity",
+                    backend,
+                    self.subentry.title,
+                )
+                return stt.SpeechResult(None, stt.SpeechResultState.ERROR)
         except HomeAssistantError as err:
-            _LOGGER.error("Error during Azure Speech STT: %s", err)
+            _LOGGER.error("Error during %s STT: %s", backend, err)
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)
 
         if text:
