@@ -355,7 +355,7 @@ class OpenAISubentryFlowHandler(ConfigSubentryFlow):
 
         if user_input is not None:
             errors: dict[str, str] = {}
-            if not user_input.get(CONF_LLM_HASS_API):
+            if user_input.get(CONF_LLM_HASS_API) is None:
                 user_input.pop(CONF_LLM_HASS_API, None)
 
             # Drop blank optional fields so presence checks are meaningful.

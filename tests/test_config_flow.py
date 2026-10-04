@@ -7,7 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.aoai_conversation.const import CONF_ENDPOINT, DOMAIN
 from homeassistant import config_entries
-from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_API_KEY, CONF_LLM_HASS_API
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -182,6 +182,28 @@ async def test_conversation_subentry_sets_model_in_recommended_mode(
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["chat_model"] == "my-gpt4o-deployment"
+
+
+async def test_conversation_subentry_preserves_empty_assist_api_selection(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """An explicit empty Assist API selection is retained."""
+    result = await hass.config_entries.subentries.async_init(
+        (setup_integration.entry_id, "conversation"),
+        context={"source": config_entries.SOURCE_USER},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Azure Conversation",
+            "chat_model": "my-gpt4o-deployment",
+            CONF_LLM_HASS_API: [],
+            "recommended": True,
+        },
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_LLM_HASS_API] == []
 
 
 async def test_conversation_subentry_foundry_agent_mode(
