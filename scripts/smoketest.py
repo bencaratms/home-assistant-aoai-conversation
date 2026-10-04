@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live smoketest for the Azure OpenAI Conversation integration.
+"""Live smoketest for the Azure AI integration.
 
 Reads configuration from a git-ignored ``.env`` file and exercises the *actual*
 integration request code against your real Azure resources:
@@ -256,7 +256,7 @@ async def main() -> int:
     _load_env()
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    print(f"{BOLD}Azure OpenAI Conversation -- local smoketest{RESET}\n")
+    print(f"{BOLD}Azure AI -- local smoketest{RESET}\n")
 
     results: list[tuple[str, bool, str]] = []
 

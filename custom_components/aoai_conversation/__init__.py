@@ -1,4 +1,4 @@
-"""The Azure OpenAI Conversation integration."""
+"""The Azure AI integration."""
 
 from __future__ import annotations
 
@@ -31,6 +31,8 @@ from .const import (
 
 SERVICE_GENERATE_IMAGE = "generate_image"
 SERVICE_GENERATE_CONTENT = "generate_content"
+LEGACY_ENTRY_TITLE = "Azure OpenAI"
+ENTRY_TITLE = "Azure AI"
 
 PLATFORMS = (Platform.AI_TASK, Platform.CONVERSATION, Platform.STT, Platform.TTS)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -39,7 +41,7 @@ type OpenAIConfigEntry = ConfigEntry[openai.AsyncClient]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up Azure OpenAI Conversation."""
+    """Set up Azure AI."""
 
     async def render_image(call: ServiceCall) -> ServiceResponse:
         """Handle the removed 'generate_image' action."""
@@ -118,7 +120,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: OpenAIConfigEntry) -> bool:
-    """Set up Azure OpenAI Conversation from a config entry."""
+    """Set up Azure AI from a config entry."""
+    if entry.title == LEGACY_ENTRY_TITLE:
+        hass.config_entries.async_update_entry(entry, title=ENTRY_TITLE)
+
     client = create_client(hass, entry.data[CONF_API_KEY], entry.data[CONF_ENDPOINT])
 
     # Cache current platform data which gets added to each request
@@ -142,7 +147,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: OpenAIConfigEntry) -> bo
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: OpenAIConfigEntry) -> bool:
-    """Unload Azure OpenAI."""
+    """Unload Azure AI."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

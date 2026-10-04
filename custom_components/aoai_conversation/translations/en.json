@@ -30,7 +30,7 @@
           "api_key": "Your Azure OpenAI (Azure AI Foundry) API key.",
           "endpoint": "Your Azure OpenAI resource endpoint (the base URL from the Azure portal 'Keys and Endpoint' page, ending in services.ai.azure.com)."
         },
-        "description": "Set up the Azure OpenAI Conversation integration by providing your Azure OpenAI API key and resource endpoint. See the [Azure AI Foundry Responses API documentation]({instructions_url}) for details."
+        "description": "Set up the Azure AI integration by providing your Azure OpenAI API key and resource endpoint. See the [Azure AI Foundry Responses API documentation]({instructions_url}) for details."
       }
     }
   },
@@ -209,7 +209,7 @@
           "data_description": {
             "stt_backend": "Azure Speech REST buffers an utterance before sending it. Azure Speech realtime and MAI-Transcribe-2-Streaming forward audio as it arrives over a WebSocket connection.",
             "stt_deployment": "Required only for MAI streaming: the name of your MAI-Transcribe-2-Streaming model deployment.",
-            "stt_endpoint": "For Azure Speech REST, the Azure AI Speech endpoint. For MAI streaming, the Foundry resource root, e.g. `https://your-resource.services.ai.azure.com/`.",
+            "stt_endpoint": "For Azure Speech REST or realtime, the Azure AI Speech endpoint. For MAI streaming, the Foundry resource root, e.g. `https://your-resource.services.ai.azure.com/`.",
             "stt_api_key": "The API key for the selected Azure Speech or Foundry resource.",
             "stt_language": "Recognition language. Azure Speech REST accepts BCP-47 values such as `de-DE`; MAI streaming uses the primary language code, such as `de`."
           }

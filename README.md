@@ -1,4 +1,4 @@
-# Azure OpenAI Conversation for Home Assistant
+# Azure AI for Home Assistant
 
 A custom [Home Assistant](https://www.home-assistant.io/) integration that adds an
 **Azure OpenAI / Azure AI Foundry**–backed conversation agent and AI Task entity,
@@ -58,7 +58,7 @@ models.
 
 1. In HACS, add this repository as a **custom repository** (category: *Integration*):
    `https://github.com/bencaratms/home-assistant-aoai-conversation`.
-2. Install **Azure OpenAI Conversation**.
+2. Install **Azure AI**.
 3. Restart Home Assistant.
 
 ### Manual
@@ -72,8 +72,7 @@ Copy `custom_components/aoai_conversation` into your Home Assistant
 
 ## Configuration
 
-1. Go to **Settings → Devices & Services → Add Integration → Azure OpenAI
-   Conversation**.
+1. Go to **Settings → Devices & Services → Add Integration → Azure AI**.
 2. Enter the **LLM connection** (Azure OpenAI):
    - **API key** — your Azure OpenAI resource API key.
    - **Endpoint** — your resource endpoint, e.g.
@@ -207,7 +206,11 @@ custom-domain `tts/` / `stt/` endpoint paths work end-to-end.
 
 ## Credits
 
-Based on the Home Assistant core
+This project is forked from
+[`olohmann/home-assistant-aoai-conversation`](https://github.com/olohmann/home-assistant-aoai-conversation)
+by [Oliver Lohmann](https://github.com/olohmann).
+
+It is based on the Home Assistant core
 [`openai_conversation`](https://github.com/home-assistant/core/tree/dev/homeassistant/components/openai_conversation)
 integration (Apache‑2.0). Azure adaptation inspired by
 [`joselcaguilar/azure-openai-ha`](https://github.com/joselcaguilar/azure-openai-ha).

@@ -1,4 +1,4 @@
-"""Config flow for Azure OpenAI Conversation integration."""
+"""Config flow for Azure AI integration."""
 
 from collections.abc import Mapping
 import json
@@ -140,7 +140,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
 
 
 class OpenAIConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Azure OpenAI Conversation."""
+    """Handle a config flow for Azure AI."""
 
     VERSION = 1
     MINOR_VERSION = 1
@@ -170,7 +170,7 @@ class OpenAIConfigFlow(ConfigFlow, domain=DOMAIN):
                         self._get_reauth_entry(), data_updates=user_input
                     )
                 return self.async_create_entry(
-                    title="Azure OpenAI",
+                    title="Azure AI",
                     data=user_input,
                     subentries=[
                         {

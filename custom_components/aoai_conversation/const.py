@@ -1,4 +1,4 @@
-"""Constants for the Azure OpenAI Conversation integration."""
+"""Constants for the Azure AI integration."""
 
 import logging
 from typing import Any
@@ -13,7 +13,7 @@ DEFAULT_CONVERSATION_NAME = "Azure OpenAI Conversation"
 DEFAULT_AI_TASK_NAME = "Azure OpenAI AI Task"
 DEFAULT_STT_NAME = "Azure Speech STT"
 DEFAULT_TTS_NAME = "Azure Speech TTS"
-DEFAULT_NAME = "Azure OpenAI Conversation"
+DEFAULT_NAME = "Azure AI"
 
 # Azure-specific connection settings.
 CONF_ENDPOINT = "endpoint"

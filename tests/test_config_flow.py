@@ -53,7 +53,7 @@ async def test_user_flow_creates_entry_with_subentries(hass: HomeAssistant) -> N
         await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Azure OpenAI"
+    assert result["title"] == "Azure AI"
     assert result["data"] == USER_INPUT
 
     subentry_types = sorted(sub["subentry_type"] for sub in result["subentries"])

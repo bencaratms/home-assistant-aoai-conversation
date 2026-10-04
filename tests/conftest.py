@@ -1,4 +1,4 @@
-"""Test fixtures for the Azure OpenAI Conversation integration."""
+"""Test fixtures for the Azure AI integration."""
 
 from collections.abc import Generator
 from unittest.mock import MagicMock, patch
