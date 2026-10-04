@@ -1,4 +1,4 @@
-"""Constants for the Azure OpenAI Conversation (Bencaratms) integration."""
+"""Constants for the Azure OpenAI Conversation integration."""
 
 import logging
 from typing import Any
@@ -6,14 +6,14 @@ from typing import Any
 from homeassistant.const import CONF_LLM_HASS_API, CONF_PROMPT
 from homeassistant.helpers import llm
 
-DOMAIN = "aoai_conversation_bencaratms"
+DOMAIN = "aoai_conversation"
 LOGGER: logging.Logger = logging.getLogger(__package__)
 
-DEFAULT_CONVERSATION_NAME = "Azure OpenAI Conversation (Bencaratms)"
+DEFAULT_CONVERSATION_NAME = "Azure OpenAI Conversation"
 DEFAULT_AI_TASK_NAME = "Azure OpenAI AI Task"
 DEFAULT_STT_NAME = "Azure Speech STT"
 DEFAULT_TTS_NAME = "Azure Speech TTS"
-DEFAULT_NAME = "Azure OpenAI Conversation (Bencaratms)"
+DEFAULT_NAME = "Azure OpenAI Conversation"
 
 # Azure-specific connection settings.
 CONF_ENDPOINT = "endpoint"

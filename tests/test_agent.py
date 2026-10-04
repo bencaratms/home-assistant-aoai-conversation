@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 import openai
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aoai_conversation_bencaratms.conversation import (
+from custom_components.aoai_conversation.conversation import (
     OpenAIConversationEntity,
 )
-from custom_components.aoai_conversation_bencaratms.entity import (
+from custom_components.aoai_conversation.entity import (
     _error_message,
     _format_tool,
 )
@@ -50,7 +50,7 @@ def test_get_client_agent_mode_builds_project_client(
 
     sentinel = MagicMock(name="agent_client")
     with patch(
-        "custom_components.aoai_conversation_bencaratms.entity.create_client",
+        "custom_components.aoai_conversation.entity.create_client",
         return_value=sentinel,
     ) as mock_create:
         client = entity._get_client()
@@ -97,7 +97,7 @@ def test_format_tool_uses_probatio_openapi() -> None:
     }
 
     with patch(
-        "custom_components.aoai_conversation_bencaratms.entity.to_openapi",
+        "custom_components.aoai_conversation.entity.to_openapi",
         return_value=schema,
     ) as mock_to_openapi:
         result = _format_tool(tool, None)
@@ -119,7 +119,7 @@ async def test_agent_conversation_thread_created_and_reused(
     entity.hass = hass
 
     with patch(
-        "custom_components.aoai_conversation_bencaratms.entity.async_create_conversation",
+        "custom_components.aoai_conversation.entity.async_create_conversation",
         return_value="conv_xyz",
     ) as mock_create:
         first = await entity._async_get_agent_conversation("ha-conv-1")
@@ -147,7 +147,7 @@ async def test_agent_conversation_create_failure_returns_none(
     entity.hass = hass
 
     with patch(
-        "custom_components.aoai_conversation_bencaratms.entity.async_create_conversation",
+        "custom_components.aoai_conversation.entity.async_create_conversation",
         side_effect=HomeAssistantError("boom"),
     ):
         result = await entity._async_get_agent_conversation("ha-conv-1")

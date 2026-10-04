@@ -30,7 +30,7 @@
           "api_key": "Your Azure OpenAI (Azure AI Foundry) API key.",
           "endpoint": "Your Azure OpenAI resource endpoint (the base URL from the Azure portal 'Keys and Endpoint' page, ending in services.ai.azure.com)."
         },
-        "description": "Set up the Azure OpenAI Conversation (Bencaratms) integration by providing your Azure OpenAI API key and resource endpoint. See the [Azure AI Foundry Responses API documentation]({instructions_url}) for details."
+        "description": "Set up the Azure OpenAI Conversation integration by providing your Azure OpenAI API key and resource endpoint. See the [Azure AI Foundry Responses API documentation]({instructions_url}) for details."
       }
     }
   },

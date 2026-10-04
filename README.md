@@ -1,4 +1,4 @@
-# Azure OpenAI Conversation (Bencaratms) for Home Assistant
+# Azure OpenAI Conversation for Home Assistant
 
 A custom [Home Assistant](https://www.home-assistant.io/) integration that adds an
 **Azure OpenAI / Azure AI Foundry**–backed conversation agent and AI Task entity,
@@ -26,8 +26,8 @@ e.g. German `de‑DE‑KatjaNeural`) via the Speech REST API — no OpenAI audio
 - 🔊 **Text‑to‑Speech** (Azure AI Speech) — neural voices via SSML. Configured with
   **endpoint URI + API key + voice** (+ optional output format, rate, pitch, style).
 
-> **Removed actions.** The legacy `aoai_conversation_bencaratms.generate_content` and
-> `aoai_conversation_bencaratms.generate_image` actions are **not supported** — calling either
+> **Removed actions.** The legacy `aoai_conversation.generate_content` and
+> `aoai_conversation.generate_image` actions are **not supported** — calling either
 > raises an error and logs a message directing you to the `ai_task.generate_data`
 > and `ai_task.generate_image` actions instead.
 
@@ -55,15 +55,15 @@ e.g. German `de‑DE‑KatjaNeural`) via the Speech REST API — no OpenAI audio
 
 1. In HACS, add this repository as a **custom repository** (category: *Integration*):
    `https://github.com/bencaratms/home-assistant-aoai-conversation`.
-2. Install **Azure OpenAI Conversation (Bencaratms)**.
+2. Install **Azure OpenAI Conversation**.
 3. Restart Home Assistant.
 
 ### Manual
 
-Copy `custom_components/aoai_conversation_bencaratms` into your Home Assistant
+Copy `custom_components/aoai_conversation` into your Home Assistant
 `config/custom_components/` directory and restart Home Assistant.
 
-> The integration ships its own brand icon in `custom_components/aoai_conversation_bencaratms/brand/`
+> The integration ships its own brand icon in `custom_components/aoai_conversation/brand/`
 > (supported natively since HA 2026.3). It may take a browser refresh / HA restart to
 > appear, as brand images are cached.
 

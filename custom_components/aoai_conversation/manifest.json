@@ -1,6 +1,6 @@
 {
-  "domain": "aoai_conversation_bencaratms",
-  "name": "Azure OpenAI Conversation (Bencaratms)",
+  "domain": "aoai_conversation",
+  "name": "Azure OpenAI Conversation",
   "after_dependencies": ["assist_pipeline", "intent"],
   "codeowners": ["@bencaratms"],
   "config_flow": true,
@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/bencaratms/home-assistant-aoai-conversation/issues",
   "requirements": ["openai==2.45.0"],
-  "version": "2026.9.4"
+  "version": "0.1"
 }

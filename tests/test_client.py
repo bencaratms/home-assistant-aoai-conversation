@@ -2,7 +2,7 @@
 
 import pytest
 
-from custom_components.aoai_conversation_bencaratms.client import (
+from custom_components.aoai_conversation.client import (
     create_client,
     normalize_azure_endpoint,
 )

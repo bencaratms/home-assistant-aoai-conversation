@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14.2"
 
 [[package]]
@@ -244,7 +244,7 @@ wheels = [
 
 [[package]]
 name = "aoai-conversation"
-version = "2026.9.4"
+version = "0.1"
 source = { virtual = "." }
 dependencies = [
     { name = "openai" },

@@ -1,4 +1,4 @@
-"""Test fixtures for the Azure OpenAI Conversation (Bencaratms) integration."""
+"""Test fixtures for the Azure OpenAI Conversation integration."""
 
 from collections.abc import Generator
 from unittest.mock import MagicMock, patch
@@ -8,7 +8,7 @@ import openai
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.aoai_conversation_bencaratms.const import (
+from custom_components.aoai_conversation.const import (
     CONF_ENDPOINT,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_CONVERSATION_NAME,
@@ -104,7 +104,7 @@ def mock_create_client() -> Generator[MagicMock]:
     """Patch create_client (in __init__) so setup succeeds offline."""
     client = build_setup_client()
     with patch(
-        "custom_components.aoai_conversation_bencaratms.create_client",
+        "custom_components.aoai_conversation.create_client",
         return_value=client,
     ):
         yield client

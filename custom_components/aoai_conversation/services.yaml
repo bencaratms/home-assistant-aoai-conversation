@@ -4,7 +4,7 @@ generate_image:
       required: true
       selector:
         config_entry:
-          integration: aoai_conversation_bencaratms
+          integration: aoai_conversation
     prompt:
       required: true
       selector:
@@ -44,7 +44,7 @@ generate_content:
       required: true
       selector:
         config_entry:
-          integration: aoai_conversation_bencaratms
+          integration: aoai_conversation
     prompt:
       required: true
       selector:

@@ -5,11 +5,11 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from custom_components.aoai_conversation_bencaratms.client import (
+from custom_components.aoai_conversation.client import (
     async_create_conversation,
     async_delete_conversation,
 )
-from custom_components.aoai_conversation_bencaratms.speech import (
+from custom_components.aoai_conversation.speech import (
     async_list_voices,
     async_recognize,
     async_synthesize,
@@ -187,7 +187,7 @@ async def test_async_create_conversation(hass: HomeAssistant) -> None:
         return httpx.Response(200, json={"id": "conv_abc123"})
 
     with patch(
-        "custom_components.aoai_conversation_bencaratms.client.get_async_client",
+        "custom_components.aoai_conversation.client.get_async_client",
         return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     ):
         conv_id = await async_create_conversation(
@@ -208,7 +208,7 @@ async def test_async_delete_conversation_swallows_errors(hass: HomeAssistant) ->
         return httpx.Response(404, text="gone")
 
     with patch(
-        "custom_components.aoai_conversation_bencaratms.client.get_async_client",
+        "custom_components.aoai_conversation.client.get_async_client",
         return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     ):
         # Should not raise despite the 404.
