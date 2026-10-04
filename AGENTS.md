@@ -98,7 +98,8 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 ## Live smoketest
 
 - `scripts/smoketest.py` (or `docker compose run --rm --build smoketest`) exercises
-  the real request code against live Azure: LLM, voices, TTS, and a TTS→STT round-trip.
+  the real request code against live Azure: LLM, voices, TTS, and buffered REST plus
+  realtime WebSocket TTS→STT round-trips.
 - Config from a **git-ignored `.env`** (`.env.example` is the template). Never commit
   secrets; audio lands in the git-ignored `smoketest-output/`.
 

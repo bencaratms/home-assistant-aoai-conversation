@@ -4,10 +4,10 @@
 Reads configuration from a git-ignored ``.env`` file and exercises the *actual*
 integration request code against your real Azure resources:
 
-1. LLM (Azure OpenAI)   -- a minimal Responses API call (falls back to models.list)
+1. LLM (Azure OpenAI)    -- a minimal Responses API call (falls back to models.list)
 2. Voices (Azure Speech) -- GET voices/list
-3. TTS (Azure Speech)   -- synthesize a phrase and save the audio
-4. STT round-trip        -- synthesize the phrase as 16 kHz PCM WAV, then recognize it
+3. TTS (Azure Speech)    -- synthesize a phrase and save the audio
+4. STT round-trips       -- recognize 16 kHz PCM via buffered REST and realtime WebSocket
 
 Usage:
     cp .env.example .env      # then fill in your values
@@ -20,12 +20,14 @@ No secrets are printed or committed.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 import io
 import os
 from pathlib import Path
 import sys
 import wave
 
+import aiohttp
 import httpx
 import openai
 
@@ -41,7 +43,12 @@ from custom_components.aoai_conversation.speech import (
     build_ssml,
 )
 from custom_components.aoai_conversation.stt_backend import STTRequest
-from custom_components.aoai_conversation.stt_buffered import async_transcribe
+from custom_components.aoai_conversation.stt_buffered import (
+    async_transcribe as async_buffered_transcribe,
+)
+from custom_components.aoai_conversation.stt_realtime import (
+    async_transcribe as async_realtime_transcribe,
+)
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "smoketest-output"
 
@@ -62,7 +69,7 @@ def _load_env() -> None:
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
-    else:
+    elif not os.environ.get("AOAI_LLM_ENDPOINT"):
         print(f"{YELLOW}No .env file found at {env_path}; reading os.environ.{RESET}")
 
 
@@ -207,12 +214,10 @@ async def check_tts(client: httpx.AsyncClient) -> str:
     return f"{len(audio)} bytes ({output_format}) saved to {out}"
 
 
-async def check_stt_roundtrip(client: httpx.AsyncClient) -> str:
-    """Synthesize the phrase as 16 kHz PCM WAV, then recognize it back."""
+async def prepare_stt_roundtrip_input(client: httpx.AsyncClient) -> tuple[str, bytes]:
+    """Synthesize the smoketest phrase as 16 kHz PCM WAV and extract its audio."""
     tts_endpoint = _speech_endpoint("TTS")
     tts_key = _speech_key("TTS")
-    stt_endpoint = _speech_endpoint("STT")
-    stt_key = _speech_key("STT")
     voice = os.environ.get("AOAI_TTS_VOICE", "de-DE-KatjaNeural").strip()
     language = os.environ.get("AOAI_STT_LANGUAGE", "de-DE").strip()
     phrase = os.environ.get(
@@ -230,18 +235,18 @@ async def check_stt_roundtrip(client: httpx.AsyncClient) -> str:
     with wave.open(io.BytesIO(wav), "rb") as wav_file:
         pcm = wav_file.readframes(wav_file.getnframes())
 
-    async def audio_stream():
-        yield pcm
+    return phrase, pcm
 
-    text = await async_transcribe(
-        client,
-        STTRequest(
-            endpoint=stt_endpoint,
-            api_key=stt_key,
-            language=language,
-            audio_stream=audio_stream(),
-        ),
-    )
+
+async def _pcm_stream(pcm: bytes) -> AsyncIterator[bytes]:
+    """Yield 100 ms PCM chunks to exercise incremental STT audio handling."""
+    chunk_size = 3_200  # 16 kHz, mono, 16-bit PCM.
+    for start in range(0, len(pcm), chunk_size):
+        yield pcm[start : start + chunk_size]
+
+
+def _roundtrip_result(phrase: str, text: str | None) -> str:
+    """Format and validate a recognized smoketest transcript."""
     if not text:
         raise RuntimeError("STT returned no transcript")
 
@@ -250,6 +255,38 @@ async def check_stt_roundtrip(client: httpx.AsyncClient) -> str:
 
     match = "≈ match" if _norm(text) == _norm(phrase) else "differs (see below)"
     return f"said {phrase!r} -> heard {text!r} [{match}]"
+
+
+async def check_buffered_stt_roundtrip(
+    client: httpx.AsyncClient, phrase: str, pcm: bytes
+) -> str:
+    """Recognize the prepared PCM audio through buffered Azure Speech REST."""
+    text = await async_buffered_transcribe(
+        client,
+        STTRequest(
+            endpoint=_speech_endpoint("STT"),
+            api_key=_speech_key("STT"),
+            language=os.environ.get("AOAI_STT_LANGUAGE", "de-DE").strip(),
+            audio_stream=_pcm_stream(pcm),
+        ),
+    )
+    return _roundtrip_result(phrase, text)
+
+
+async def check_realtime_stt_roundtrip(
+    client: aiohttp.ClientSession, phrase: str, pcm: bytes
+) -> str:
+    """Recognize the prepared PCM audio through Azure Speech realtime STT."""
+    text = await async_realtime_transcribe(
+        client,
+        STTRequest(
+            endpoint=_speech_endpoint("STT"),
+            api_key=_speech_key("STT"),
+            language=os.environ.get("AOAI_STT_LANGUAGE", "de-DE").strip(),
+            audio_stream=_pcm_stream(pcm),
+        ),
+    )
+    return _roundtrip_result(phrase, text)
 
 
 async def main() -> int:
@@ -274,18 +311,41 @@ async def main() -> int:
     except Exception as err:
         results.append(("Foundry agent", False, str(err)))
 
-    # Speech checks share one httpx client.
+    roundtrip_input: tuple[str, bytes] | None = None
+
+    # REST Speech checks share one httpx client.
     async with httpx.AsyncClient() as client:
         for name, coro in (
             ("Voices (Azure Speech)", check_voices),
             ("TTS (Azure Speech)", check_tts),
-            ("STT round-trip (Azure Speech)", check_stt_roundtrip),
         ):
             try:
                 detail = await coro(client)
                 results.append((name, True, detail))
             except Exception as err:
                 results.append((name, False, str(err)))
+
+        try:
+            roundtrip_input = await prepare_stt_roundtrip_input(client)
+        except Exception as err:
+            results.append(("STT input (Azure Speech)", False, str(err)))
+
+        if roundtrip_input:
+            try:
+                detail = await check_buffered_stt_roundtrip(client, *roundtrip_input)
+                results.append(("STT round-trip (Azure Speech REST)", True, detail))
+            except Exception as err:
+                results.append(("STT round-trip (Azure Speech REST)", False, str(err)))
+
+    if roundtrip_input:
+        async with aiohttp.ClientSession() as client:
+            try:
+                detail = await check_realtime_stt_roundtrip(client, *roundtrip_input)
+                results.append(("STT round-trip (Azure Speech realtime)", True, detail))
+            except Exception as err:
+                results.append(
+                    ("STT round-trip (Azure Speech realtime)", False, str(err))
+                )
 
     print(f"\n{BOLD}Results{RESET}")
     all_ok = True

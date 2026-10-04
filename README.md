@@ -175,9 +175,9 @@ mise run test-native  # pytest outside Docker
 ### Local smoketest (live)
 
 A standalone script validates the whole stack against your **real** Azure resources —
-LLM, voice listing, TTS, and a TTS→STT round-trip — using the integration's actual
-request code. All configuration comes from a **git-ignored `.env`** file; no secrets are
-printed or committed.
+LLM, voice listing, TTS, and buffered REST plus realtime WebSocket TTS→STT round-trips —
+using the integration's actual request code. All configuration comes from a **git-ignored
+`.env`** file; no secrets are printed or committed.
 
 ```bash
 cp .env.example .env      # then fill in your endpoints, keys, voice, etc.
@@ -185,9 +185,10 @@ docker compose run --rm --build smoketest
 ```
 
 It prints a per-check PASS/FAIL summary (and exits non-zero on failure), and saves the
-synthesized audio under `smoketest-output/` (also git-ignored). The round-trip synthesizes
-a German phrase as 16 kHz PCM WAV and feeds it back to STT, which also proves the
-custom-domain `tts/` / `stt/` endpoint paths work end-to-end.
+synthesized audio under `smoketest-output/` (also git-ignored). The round-trips synthesize
+one German phrase as 16 kHz PCM WAV, then reuse its PCM chunks for buffered REST and
+realtime STT. This proves the custom-domain `tts/` / `stt/` endpoint paths and the
+realtime Speech WebSocket flow end-to-end.
 
 The smoketest container receives values from `.env` as environment variables; it mounts
 only `custom_components/`, `scripts/`, and `smoketest-output/`, so the secret file is
