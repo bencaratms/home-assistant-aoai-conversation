@@ -273,7 +273,7 @@ class _RedirectingSpeechWebSocket:
 
 
 class _RedirectingSpeechWebSocketClient(_MockSpeechWebSocketClient):
-    """Client mock that redirects the initial custom-domain WebSocket."""
+    """Client mock that redirects a configured number of WebSocket attempts."""
 
     def __init__(self, redirects: list[str]) -> None:
         super().__init__()
@@ -289,6 +289,27 @@ class _RedirectingSpeechWebSocketClient(_MockSpeechWebSocketClient):
         if self.redirects:
             return _RedirectingSpeechWebSocket(self.redirects.pop(0))
         return self.websocket
+
+
+class _RedirectingProtocolClient:
+    """Redirect once, then connect the retried URL to a local protocol server."""
+
+    def __init__(self, session: aiohttp.ClientSession, protocol_url: str) -> None:
+        self._protocol_url = protocol_url
+        self._session = session
+        self.urls: list[str] = []
+
+    def ws_connect(self, url: str, *, headers: dict[str, str]):
+        """Simulate Azure's WSS redirect before using the local server."""
+        self.urls.append(url)
+        if len(self.urls) == 1:
+            return _RedirectingSpeechWebSocket(
+                "wss://eastus2.stt.speech.microsoft.com/"
+                "speech/recognition/conversation/cognitiveservices/v1"
+                "?language=de-DE&format=detailed"
+                "&Ocp-Apim-Custom-Domain-Name=resource.services.ai.azure.com"
+            )
+        return self._session.ws_connect(self._protocol_url, headers=headers)
 
 
 class _SpeechProtocolEmulator:
@@ -562,6 +583,64 @@ async def test_async_realtime_transcribe_follows_wss_redirect() -> None:
     ]
 
 
+async def test_async_realtime_transcribe_rejects_non_wss_redirect() -> None:
+    """Realtime STT rejects redirects that do not use secure WebSockets."""
+    client = _RedirectingSpeechWebSocketClient(
+        ["https://eastus2.stt.speech.microsoft.com/not-a-websocket"]
+    )
+
+    with pytest.raises(HomeAssistantError, match="invalid WebSocket URL"):
+        await async_realtime_transcribe(
+            client,  # type: ignore[arg-type]
+            STTRequest(
+                endpoint="https://resource.services.ai.azure.com/",
+                api_key="key",
+                language="de-DE",
+                audio_stream=_audio_chunks(),
+            ),
+        )
+
+
+async def test_async_realtime_transcribe_rejects_redirect_loop() -> None:
+    """Realtime STT rejects redirects back to an already attempted URL."""
+    endpoint = "https://resource.services.ai.azure.com/"
+    client = _RedirectingSpeechWebSocketClient([speech_realtime_url(endpoint, "de-DE")])
+
+    with pytest.raises(HomeAssistantError, match="redirect loop detected"):
+        await async_realtime_transcribe(
+            client,  # type: ignore[arg-type]
+            STTRequest(
+                endpoint=endpoint,
+                api_key="key",
+                language="de-DE",
+                audio_stream=_audio_chunks(),
+            ),
+        )
+
+
+async def test_async_realtime_transcribe_limits_redirects() -> None:
+    """Realtime STT stops after three total WebSocket connection attempts."""
+    client = _RedirectingSpeechWebSocketClient(
+        [
+            "wss://redirect-1.speech.microsoft.com/recognition",
+            "wss://redirect-2.speech.microsoft.com/recognition",
+            "wss://redirect-3.speech.microsoft.com/recognition",
+        ]
+    )
+
+    with pytest.raises(HomeAssistantError, match="redirect limit"):
+        await async_realtime_transcribe(
+            client,  # type: ignore[arg-type]
+            STTRequest(
+                endpoint="https://resource.services.ai.azure.com/",
+                api_key="key",
+                language="de-DE",
+                audio_stream=_audio_chunks(),
+            ),
+        )
+    assert len(client.urls) == 3
+
+
 async def test_async_realtime_transcribe_against_protocol_emulator(
     socket_enabled: None,
 ) -> None:
@@ -612,6 +691,37 @@ async def test_async_realtime_transcribe_against_protocol_emulator(
     for headers, _ in headers_and_bodies[1:]:
         assert headers.endswith(b"\r\n")
         assert b"Path: audio\r\n" in headers
+
+
+async def test_async_realtime_transcribe_redirects_to_protocol_emulator(
+    socket_enabled: None,
+) -> None:
+    """Realtime STT retries an Azure WSS redirect before sending audio."""
+    async with (
+        _SpeechProtocolEmulator() as emulator,
+        aiohttp.ClientSession() as session,
+    ):
+        client = _RedirectingProtocolClient(session, emulator.url)
+        transcript = await async_realtime_transcribe(
+            client,  # type: ignore[arg-type]
+            STTRequest(
+                endpoint="https://resource.services.ai.azure.com/",
+                api_key="key",
+                language="de-DE",
+                audio_stream=_audio_chunks(),
+            ),
+        )
+
+    assert transcript == "Local transcript"
+    assert client.urls == [
+        "wss://resource.services.ai.azure.com/stt/speech/recognition/"
+        "conversation/cognitiveservices/v1?language=de-DE&format=detailed",
+        "wss://eastus2.stt.speech.microsoft.com/"
+        "speech/recognition/conversation/cognitiveservices/v1"
+        "?language=de-DE&format=detailed"
+        "&Ocp-Apim-Custom-Domain-Name=resource.services.ai.azure.com",
+    ]
+    assert len(emulator.binary_messages) == 4
 
 
 async def test_async_create_conversation(hass: HomeAssistant) -> None:
