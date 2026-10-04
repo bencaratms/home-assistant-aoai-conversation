@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import aiohttp
+from aiohttp import web
 import httpx
 import pytest
 
@@ -290,6 +291,55 @@ class _RedirectingSpeechWebSocketClient(_MockSpeechWebSocketClient):
         return self.websocket
 
 
+class _SpeechProtocolEmulator:
+    """Local Azure Speech WebSocket server that records a complete STT turn."""
+
+    def __init__(self) -> None:
+        self.binary_messages: list[bytes] = []
+        self.text_messages: list[str] = []
+        self._runner: web.AppRunner | None = None
+
+    async def __aenter__(self) -> _SpeechProtocolEmulator:
+        """Start the local WebSocket server on an ephemeral port."""
+        app = web.Application()
+        app.router.add_get("/", self._handle_connection)
+        self._runner = web.AppRunner(app)
+        await self._runner.setup()
+        site = web.TCPSite(self._runner, "127.0.0.1", 0)
+        await site.start()
+        assert site._server is not None
+        socket = site._server.sockets[0]
+        self.url = f"ws://127.0.0.1:{socket.getsockname()[1]}/"
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        """Stop the local WebSocket server."""
+        assert self._runner is not None
+        await self._runner.cleanup()
+
+    async def _handle_connection(self, request: web.Request) -> web.WebSocketResponse:
+        """Record one Azure Speech protocol turn and return a final transcript."""
+        websocket = web.WebSocketResponse()
+        await websocket.prepare(request)
+
+        for _ in range(6):
+            message = await websocket.receive()
+            if message.type is aiohttp.WSMsgType.TEXT:
+                self.text_messages.append(message.data)
+            elif message.type is aiohttp.WSMsgType.BINARY:
+                self.binary_messages.append(message.data)
+            else:
+                await websocket.close(code=1002, message=b"Unexpected frame")
+                return websocket
+
+        await websocket.send_str(
+            "Path: speech.phrase\r\n\r\n"
+            '{"RecognitionStatus":"Success","DisplayText":"Local transcript"}'
+        )
+        await websocket.send_str("Path: turn.end\r\n\r\n{}")
+        return websocket
+
+
 async def _audio_chunks() -> AsyncIterator[bytes]:
     """Yield two PCM chunks like Home Assistant's STT stream."""
     yield b"\x01\x00"
@@ -510,6 +560,58 @@ async def test_async_realtime_transcribe_follows_wss_redirect() -> None:
         "wss://redirector.speech.microsoft.com/redirect?request=first",
         regional_url,
     ]
+
+
+async def test_async_realtime_transcribe_against_protocol_emulator(
+    socket_enabled: None,
+) -> None:
+    """Realtime STT sends an Azure Speech protocol turn to a local server."""
+    async with _SpeechProtocolEmulator() as emulator, aiohttp.ClientSession() as client:
+        with patch(
+            "custom_components.aoai_conversation.stt_realtime.speech_realtime_url",
+            return_value=emulator.url,
+        ):
+            transcript = await async_realtime_transcribe(
+                client,
+                STTRequest(
+                    endpoint=BASE,
+                    api_key="key",
+                    language="de-DE",
+                    audio_stream=_audio_chunks(),
+                ),
+            )
+
+    assert transcript == "Local transcript"
+    assert len(emulator.text_messages) == 2
+    assert len(emulator.binary_messages) == 4
+
+    control_paths = [
+        message.split("\r\n\r\n", maxsplit=1)[0].split("\r\n", maxsplit=1)[0]
+        for message in emulator.text_messages
+    ]
+    assert control_paths == ["Path: speech.config", "Path: speech.context"]
+
+    headers_and_bodies = []
+    for frame in emulator.binary_messages:
+        header_length = struct.unpack(">H", frame[:2])[0]
+        headers_and_bodies.append(
+            (frame[2 : 2 + header_length], frame[2 + header_length :])
+        )
+
+    wav_headers, wav_body = headers_and_bodies[0]
+    assert wav_headers.endswith(b"\r\n")
+    assert b"Path: audio\r\n" in wav_headers
+    assert b"Content-Type: audio/x-wav\r\n" in wav_headers
+    assert wav_body.startswith(b"RIFF")
+
+    assert [body for _, body in headers_and_bodies[1:]] == [
+        b"\x01\x00",
+        b"\x02\x00",
+        b"",
+    ]
+    for headers, _ in headers_and_bodies[1:]:
+        assert headers.endswith(b"\r\n")
+        assert b"Path: audio\r\n" in headers
 
 
 async def test_async_create_conversation(hass: HomeAssistant) -> None:
