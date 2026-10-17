@@ -12,7 +12,7 @@ Azure Speech realtime recognition, or MAI-Transcribe-2-Streaming — no OpenAI a
 models.
 
 > **Home Assistant support:** latest release only (built and tested against
-> **2026.9.4**). No backwards compatibility is provided.
+> **2026.10.2**). No backwards compatibility is provided.
 
 ## Features
 

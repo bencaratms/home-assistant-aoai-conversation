@@ -9,13 +9,13 @@ authors = [{ name = "olohmann" }]
 
 # Runtime dependency of the integration itself (mirrors manifest.json requirements).
 # Pinned to match the Home Assistant release this integration targets
-# (HA 2026.9.x pins openai==2.45.0).
-dependencies = ["openai==2.45.0"]
+# (HA 2026.10.x pins openai==3.10.0).
+dependencies = ["openai==3.10.0"]
 
 [dependency-groups]
 dev = [
-  "homeassistant==2026.9.4",
-  "pytest-homeassistant-custom-component==0.13.367",
+  "homeassistant==2026.10.2",
+  "pytest-homeassistant-custom-component==0.13.373",
   "ruff==0.14.2",
   # Requirements of the HA integrations this component depends on
   # (conversation / assist_pipeline / ai_task / tts), needed to import

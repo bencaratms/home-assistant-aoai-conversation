@@ -15,7 +15,7 @@ isolated** so upstream syncs stay easy. Latest HA only; **no backwards compatibi
 
 ## Golden rules (read before changing anything)
 
-1. **Pin `openai==2.45.0`.** HA 2026.8.x constrains `openai==2.45.0`; a different
+1. **Pin `openai==3.10.0`.** HA 2026.10.x constrains `openai==3.10.0`; a different
    exact version makes HA fail to install the integration (`RequirementsNotFound`).
    Keep `manifest.json` requirements **and** `pyproject.toml`
    `[project].dependencies` aligned with Home Assistant.
