@@ -1,20 +1,24 @@
 """Tests for Foundry agent routing in the conversation entity."""
 
 import dataclasses
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import openai
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.aoai_conversation.conversation import (
     OpenAIConversationEntity,
 )
 from custom_components.aoai_conversation.entity import (
+    _convert_content_to_param,
     _error_message,
     _format_tool,
 )
+from homeassistant.components import conversation
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import llm
 
 
 def _conversation_subentry(entry: MockConfigEntry):
@@ -104,6 +108,72 @@ def test_format_tool_uses_probatio_openapi() -> None:
 
     mock_to_openapi.assert_called_once_with(tool.parameters, custom_serializer=None)
     assert result["parameters"] == {"type": "object", "properties": {}}
+
+
+def test_convert_function_tool_result() -> None:
+    """Function output contains the result data without deprecated access."""
+    content = conversation.ToolResultContent(
+        agent_id="agent",
+        tool_call_id="call-1",
+        tool_name="test_tool",
+        result=llm.ToolResult(data={"value": 42}, error=True),
+    )
+
+    with patch.object(
+        conversation.ToolResultContent,
+        "tool_result",
+        new_callable=PropertyMock,
+        side_effect=AssertionError("Deprecated property accessed"),
+        create=True,
+    ):
+        result = _convert_content_to_param([content])
+
+    assert result == [
+        {"type": "function_call_output", "call_id": "call-1", "output": '{"value":42}'}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("data", "status"),
+    [({"status": "in_progress"}, "in_progress"), ({}, "completed")],
+)
+def test_convert_web_search_tool_result(data: dict, status: str) -> None:
+    """Web search status comes from result data without deprecated access."""
+    assistant = conversation.AssistantContent(
+        agent_id="agent",
+        tool_calls=[
+            llm.ToolInput(
+                tool_name="web_search_call",
+                tool_args={"action": {"type": "search", "query": "weather"}},
+                id="search-1",
+                external=True,
+            )
+        ],
+    )
+    content = conversation.ToolResultContent(
+        agent_id="agent",
+        tool_call_id="search-1",
+        tool_name="web_search_call",
+        result=llm.ToolResult(data=data),
+    )
+
+    with patch.object(
+        conversation.ToolResultContent,
+        "tool_result",
+        new_callable=PropertyMock,
+        side_effect=AssertionError("Deprecated property accessed"),
+        create=True,
+    ):
+        result = _convert_content_to_param([assistant, content])
+
+    assert result == [
+        {
+            "type": "web_search_call",
+            "id": "search-1",
+            "action": {"type": "search", "query": "weather"},
+            "status": status,
+        }
+    ]
 
 
 async def test_agent_conversation_thread_created_and_reused(
