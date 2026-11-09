@@ -11,8 +11,8 @@ OpenAI resource. TTS is backed by Azure AI Speech (neural voices, e.g. German
 Azure Speech realtime recognition, or MAI-Transcribe-2-Streaming — no OpenAI audio
 models.
 
-> **Home Assistant support:** latest release only (built and tested against
-> **2026.10.2**). No backwards compatibility is provided.
+> **Home Assistant support:** latest release only (**2026.11.1**). No backwards
+> compatibility is provided.
 
 ## Features
 
